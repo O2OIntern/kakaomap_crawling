@@ -46,7 +46,7 @@ def search(place):
     search_area = driver.find_element_by_xpath('//*[@id="search.keyword.query"]')  # 검색 창
     search_area.send_keys(place)  # 검색어 입력
     driver.find_element_by_xpath('//*[@id="search.keyword.submit"]').send_keys(Keys.ENTER)  # Enter로 검색
-    sleep(1)
+    sleep(2)
 
     # 검색된 정보가 있는 경우에만 탐색
     # 1번 페이지 place list 읽기
@@ -83,6 +83,7 @@ def search(place):
     finally:
         search_area.clear()
 
+
 def crawling(place, place_lists):
     """
     페이지 목록을 받아서 크롤링 하는 함수
@@ -95,97 +96,93 @@ def crawling(place, place_lists):
     for i, place in enumerate(place_lists):
         # 광고에 따라서 index 조정해야함
         # if i >= 6:
-        i = i + ad_flg;
 
-        place_name = place.select('.head_item > .tit_name > .link_name')[0].text  # place name
-        place_address = place.select('.info_item > .addr > p')[0].text  # place address
         try:
-            detail_page_xpath = '//*[@id="info.search.place.list"]/li[' + str(i + 1) + ']/div[5]/div[4]/a[1]'
-            print("up")
+            detail_page_xpath = '//*[@id="info.search.place.list"]/li[' + str(i+1) + ']/div[5]/div[4]/a[1]'
             driver.find_element_by_xpath(detail_page_xpath).send_keys(Keys.ENTER)
-            print("down")
             driver.switch_to.window(driver.window_handles[-1])  # 상세정보 탭으로 변환
             sleep(1)
-
+            place_name = place.select('.head_item > .tit_name > .link_name')[0].text  # place name
+            place_address = place.select('.info_item > .addr > p')[0].text  # place address
             print('####', place_name)
-
+            print('####', place_address)
             # 첫 페이지
-            extract_review(place_name,place_address)
+            extract_review(place_name, place_address)
 
             # 2-5 페이지
             idx = 3
             try:
                 page_num = len(driver.find_elements_by_class_name('link_page'))  # 페이지 수 찾기
-                for i in range(page_num - 1):
+                for i in range(page_num-1):
                     # css selector를 이용해 페이지 버튼 누르기
-                    driver.find_element_by_css_selector(
-                        '#mArticle > div.cont_evaluation > div.evaluation_review > div > a:nth-child(' + str(
-                            idx) + ')').send_keys(Keys.ENTER)
+                    driver.find_element_by_css_selector('#mArticle > div.cont_evaluation > div.evaluation_review > div > a:nth-child(' + str(idx) +')').send_keys(Keys.ENTER)
                     sleep(1)
-                    extract_review(place_name,place_address)
+                    extract_review(place_name, place_address)
                     idx += 1
                 driver.find_element_by_link_text('다음').send_keys(Keys.ENTER)  # 5페이지가 넘는 경우 다음 버튼 누르기
                 sleep(1)
-                extract_review(place_name,place_address)  # 리뷰 추출
-            except (NoSuchElementException, ElementNotInteractableException, StaleElementReferenceException):
+                extract_review(place_name, place_address)  # 리뷰 추출
+            except (NoSuchElementException, ElementNotInteractableException):
                 print("no review in crawling 1")
-                break
+
             # 그 이후 페이지
             while True:
-                idx = 4
+                idx = 5
                 try:
                     page_num = len(driver.find_elements_by_class_name('link_page'))
                     for i in range(page_num - 1):
-                        driver.find_element_by_css_selector(
-                            '#mArticle > div.cont_evaluation > div.evaluation_review > div > a:nth-child(' + str(
-                                idx) + ')').send_keys(Keys.ENTER)
+                        driver.find_element_by_css_selector('#mArticle > div.cont_evaluation > div.evaluation_review > div > a:nth-child(' + str(idx) +')').send_keys(Keys.ENTER)
                         sleep(1)
-                        extract_review(place_name,place_address)
+                        extract_review(place_name, place_address)
                         idx += 1
                     driver.find_element_by_link_text('다음').send_keys(Keys.ENTER)  # 10페이지 이상으로 넘어가기 위한 다음 버튼 클릭
                     sleep(1)
-                    extract_review(place_name,place_address)  # 리뷰 추출
-                except (NoSuchElementException, ElementNotInteractableException, StaleElementReferenceException):
+                    extract_review(place_name, place_address)  # 리뷰 추출
+                except (NoSuchElementException, ElementNotInteractableException):
                     print("no review in crawling 2")
                     break
 
             driver.close()
             driver.switch_to.window(driver.window_handles[0])  # 검색 탭으로 전환
-        except (NoSuchElementException, ElementNotInteractableException, StaleElementReferenceException):
+        except (NoSuchElementException, ElementNotInteractableException):
             print("Ad Item")
-            ad_flg = ad_flg + 1;
 
-
-def extract_review(place_name,place_address):
+def extract_review(place_name, place_address):
     global driver
 
     ret = True
 
     html = driver.page_source
     soup = BeautifulSoup(html, 'html.parser')
-
-    total = soup.select('.api_txt_lines.total_tit')
-    searchList = []
+   # more_button = driver.find_element_by_xpath('//*[@id="mArticle"]/div[5]/div[4]/ul/li[5]/div[2]/p/button').send_keys(Keys.ENTER)  #댓글에 더보기 버튼
 
     # 첫 페이지 리뷰 목록 찾기
     review_lists = soup.select('.list_evaluation > li')
+
     #리뷰가 있는 경우
     if len(review_lists) != 0:
         for i, review in enumerate(review_lists):
             comment = review.select('.txt_comment > span') # 리뷰
             rating = review.select('.grade_star > em') # 별점
             val = ''
-            if len(rating) != 0:
-                val = place_name + ',' + place_address + ',' + comment[0].text + ',' + rating[0].text.replace('점', '')
-            else:
-                val = comment[0].text + '/0'
-            print(val)
-            with open('맛집.csv', 'a', encoding='utf-8', newline='')as writer_csv:
-                writer = csv.writer(writer_csv, delimiter=',')
-                writer.writerow([val])
+            if len(comment) != 0:
+                if len(rating) != 0:
+                    # if len(more_button) != 0:
+                    #     more_button
+                    #     sleep(1)
+                    val = place_name + ',' + place_address + ',' + comment[0].text + ',' + rating[0].text.replace('점', '')
+                    # else:
+                    #     val = place_name + ',' + place_address + ',' + comment[0].text + ',' + rating[0].text.replace('점', '')
+                else:
+                    val = comment[0].text + '/0'
+                print(val)
+                # with open('맛집.csv', 'a', encoding='utf-8', newline='')as writer_csv:
+                #     writer = csv.writer(writer_csv, delimiter=',')
+                #     writer.writerow([val])
     else:
         print('no review in extract')
         ret = False
+
     return ret
 
 
