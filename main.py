@@ -148,7 +148,7 @@ def crawling(place, place_lists):
 
             # 그 이후 페이지
             while True:
-                idx = 4
+                idx = 5
                 try:
                     page_num = len(driver.find_elements_by_class_name('link_page'))
                     for i in range(page_num - 1):
